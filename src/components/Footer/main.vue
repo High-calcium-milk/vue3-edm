@@ -74,9 +74,10 @@ const random = () => {
   pauseState.value = true
   return
 }
+let timer
 const canplay = () => {
   durationTime.value = Math.floor(audio.value.duration)
-  let timer = setInterval(() => {
+  timer = setInterval(() => {
     currentTime.value = Math.floor(audio.value.currentTime)
     if (currentTime.value >= durationTime.value) {
       if (mod.value === '循环播放') {
@@ -128,7 +129,70 @@ const changeMod = (value) => {
   mod.value = value
   modShow.value = false
 }
-
+const audioDot = ref(null)
+const mousedown = (e) => {
+  clearInterval(timer)
+  let x = e.clientX
+  let old = audioDot.value.style.left.slice(0, -2) || 0
+  let mousemove = (e) => {
+    if (x > e.clientX) {
+      audioDot.value.style.left = +old - (x - e.clientX) + 'px'
+      if (audioDot.value.style.left.slice(0, -2) < 0) {
+        audioDot.value.style.left = 0 + 'px'
+      }
+    } else {
+      audioDot.value.style.left = +old + (e.clientX - x) + 'px'
+      if (audioDot.value.style.left.slice(0, -2) > 500) {
+        audioDot.value.style.left = 500 + 'px'
+      }
+    }
+  }
+  let mouseup = (e) => {
+    audio.value.currentTime = Math.ceil(audioDot.value.style.left.slice(0, -2) / 5 * (durationTime.value / 100))
+    currentTime.value = audio.value.currentTime
+    timer = setInterval(() => {
+      if (currentTime.value >= durationTime.value) {
+        if (mod.value === '循环播放') {
+          return
+        }
+        if (mod.value === '随机播放') {
+          random()
+          return
+        }
+        next()
+        clearInterval(timer)
+      }
+    }, 1000)
+    audioDot.value.removeEventListener('mousedown', mousedown)
+    audioDot.value.removeEventListener('mousemove', mousemove)
+    audioDot.value.removeEventListener('mouseup', mouseup)
+  }
+  audioDot.value.addEventListener('mousemove', mousemove)
+  audioDot.value.addEventListener('mouseup', mouseup)
+}
+const move = (e) => {
+  if (e.target.className !== 'audioTime') {
+    return
+  }
+  clearInterval(timer)
+  let x = e.offsetX
+  audioDot.value.style.left = x + 'px'
+  audio.value.currentTime = Math.ceil(x / 5 * (durationTime.value / 100))
+  currentTime.value = audio.value.currentTime
+  timer = setInterval(() => {
+    if (currentTime.value >= durationTime.value) {
+      if (mod.value === '循环播放') {
+        return
+      }
+      if (mod.value === '随机播放') {
+        random()
+        return
+      }
+      next()
+      clearInterval(timer)
+    }
+  }, 1000)
+}
 </script>
 
 <template>
@@ -141,10 +205,10 @@ const changeMod = (value) => {
         <i v-show="playState" @click="play">播放</i>
         <i v-show="pauseState" @click="pause">暫停</i>
         <i @click="next">下一首</i>
-        <div class="audioTime">
+        <div class="audioTime" @click="move">
           <div class="audioProgressBar" :style="{ width: dot + 'px' }">
           </div>
-          <div class="audioTimeDot" :style="{ left: dot + 'px' }">
+          <div @mousedown="mousedown" ref="audioDot" class="audioTimeDot" :style="{ left: dot + 'px' }">
           </div>
         </div>
         <p>{{ currentM }}:<span v-show="currentS < 10">0</span>{{ currentS
@@ -277,6 +341,7 @@ const changeMod = (value) => {
     width: 500px;
     height: 4px;
     background-color: #b6b5b5;
+    cursor: pointer;
 
     .audioTimeDot {
       position: absolute;
@@ -286,6 +351,7 @@ const changeMod = (value) => {
       height: 10px;
       border-radius: 50%;
       background-color: blue;
+      cursor: pointer;
     }
 
     .audioProgressBar {
